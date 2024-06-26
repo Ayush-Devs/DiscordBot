@@ -2,11 +2,13 @@ import os
 import discord
 import random
 from discord.ext import commands
+import google.generativeai as genai
 from dotenv import load_dotenv
 
 # Load the environment variables
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
+genai.configure(api_key=os.getenv("GEMINI"))
 
 # Set up intents
 intents = discord.Intents.default()
@@ -29,6 +31,11 @@ class CustomHelpCommand(commands.HelpCommand):
 # Set the custom help command
 bot.help_command = CustomHelpCommand()
 
+# gemini api
+def get_gemini_response(question):
+    response = genai.GenerativeModel('gemini-pro').generate_content(question)
+    return response.text
+
 # Game state for tic-tac-toe
 ttt_board = [" " for _ in range(9)]
 player_turn = "X"
@@ -46,6 +53,18 @@ def check_winner(board, player):
         [0, 4, 8], [2, 4, 6]             # Diagonal
     ]
     return any(all(board[i] == player for i in condition) for condition in win_conditions)
+
+@bot.event
+async def on_message(message):
+    if message.author == bot.user:
+        return
+
+    if message.content.startswith("!"):
+        await bot.process_commands(message)
+    else:
+        user_message = message.content
+        gemini_response = get_gemini_response(user_message)
+        await message.channel.send(gemini_response)
 
 @bot.command(name='ttt', help='Play tic-tac-toe. Use !ttt [position 1-9]')
 async def tic_tac_toe(ctx, position: int):
